@@ -1,0 +1,20 @@
+working-directory: .
+http:
+  enabled: true
+  public-url: http://localhost:8700
+  port: 8700
+  host: 0.0.0.0
+  api-v1: true
+server:
+  p1:
+    p2:
+      p3:
+        p4:
+          key1:
+            xxx: aaa
+  auto:
+    printImage: false
+  image:
+    fontSize: 13
+    fontWeight: 500
+  lastPrint: null

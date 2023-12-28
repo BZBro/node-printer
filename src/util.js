@@ -1,9 +1,10 @@
 const path = require('path')
 const fs = require('fs')
 const bwipjs = require("bwip-js");
-const png = require('pngjs')
 const textToImage = require('text-to-image');
-const sharp = require("sharp")
+const sharp = require("sharp");
+const YAML = require('yaml');
+const { config } = require('process');
 
 const DotNumbers = {
     "18MM": 112,
@@ -12,28 +13,42 @@ const DotNumbers = {
 
 class Util {
 
-    static async genImage(deviceId, dotNumbers, fontSize = 13, fontWeight = 500) {
+    static async genImage(deviceId, dotNumbers = DotNumbers['24MM'], fontSize = 13, fontWeight = 500) {
+        if (Number.isNaN(fontSize)) {
+            fontSize = 13
+        }
+        if (Number.isNaN(fontWeight)) {
+            fontWeight = 500
+        }
         await this.genDeviceIdImage(deviceId, dotNumbers, fontSize, fontWeight);
         await this.genQrCodeImage(deviceId, dotNumbers);
-
-        const qrSharp = sharp(this.getQrCodeImage(deviceId));
         const deviceSharp = sharp(this.getDeviceIdImage(deviceId));
-
         await deviceSharp
             .composite([
                 {
                     input: this.getQrCodeImage(deviceId),
-                    top: 225,
+                    top: 0,
                     left: ((DotNumbers['24MM'] - DotNumbers['18MM'])) / 2
                 }
             ])
             .toFile(this.getCombinedPath(deviceId))
 
+        // 这个是用于打印的图
         await sharp(this.getCombinedImage(deviceId))
-        .resize(dotNumbers, 295, {
-            position: 'bottom',
-        })
-        .toFile(this.getCombinedPath(deviceId))
+            .resize({
+                position: 'bottom',
+            })
+            .toFile(this.getCombinedPath(deviceId))
+
+        // 生成用于预览的图
+        await sharp(this.getCombinedImage(deviceId))
+            .flip()
+            .rotate(270)
+            .toFile(this.getPreviewPath(deviceId))
+    }
+
+    static getPreviewImage(deviceId) {
+        return fs.readFileSync(this.getPreviewPath(deviceId));
     }
 
     static getQrCodeImage(deviceId) {
@@ -46,6 +61,10 @@ class Util {
 
     static getCombinedImage(deviceId) {
         return fs.readFileSync(this.getCombinedPath(deviceId))
+    }
+
+    static getPreviewPath(deviceId) {
+        return path.join(process.cwd(), `/images/preview/${deviceId.toLowerCase()}.png`)
     }
 
     static getCombinedPath(deviceId) {
@@ -97,21 +116,141 @@ class Util {
             debugFilename: this.getDeviceIdPath(deviceId)
         });
 
+        let deviceSharpHeight = 320;
+        switch (fontSize) {
+            case 10:
+                deviceSharpHeight = 280;
+                break;
+            case 11:
+                deviceSharpHeight = 292;
+                break;
+            case 12:
+                deviceSharpHeight = 308;
+                break;
+            case 14:
+                deviceSharpHeight = 340;
+                break;
+            case 15:
+                deviceSharpHeight = 360;
+                break;
+            case 16:
+                deviceSharpHeight = 370;
+                break;
+            case 17:
+                deviceSharpHeight = 380;
+                break;
+            case 18:
+                deviceSharpHeight = 398;
+                break;
+            case 19:
+                deviceSharpHeight = 408;
+                break;
+            case 20:
+                deviceSharpHeight = 424;
+                break;
+            default:
+                break;
+        }
+
+        if (fontWeight < 600) {
+            deviceSharpHeight -= 20;
+        }
+
         const deviceSharp = await sharp(fs.readFileSync(this.getDeviceIdPath(deviceId)))
             .rotate(270)
             .flip()
-            .resize(dotNumbers, 530, {
+            .resize(dotNumbers, deviceSharpHeight, {
                 position: 'bottom',
             })
-            .extract({ 
+            .extract({
                 left: 0,
-                top: 0 ,
+                top: 0,
                 width: dotNumbers,
-                height: 520
-             })
+                height: deviceSharpHeight - 10
+            }) // 移除旁边的空白 10px
             .toFile(this.getDeviceIdPath(deviceId))
 
         return deviceSharp;
+    }
+
+
+    static getConfig() {
+        if (this.config) {
+            return this.config
+        }
+        const config = YAML.parse(fs.readFileSync(path.join(process.cwd(), '/nodeprinter.yaml'), 'utf-8'));
+        return config;
+    }
+
+    static getImpl(object, property) {
+        let elems = Array.isArray(property) ? property : property.split('.')
+        let name = elems[0]
+        const value = object[name]
+        if (elems.length <= 1) {
+            return value;
+        }
+        // Note that typeof null === 'object'
+        if (value === null || typeof value !== 'object') {
+            return undefined;
+        }
+        return this.getImpl(value, elems.slice(1));
+    };
+
+    static getConfigValue(property) {
+        if (property === null || property === undefined) {
+            console.error("Calling config.get with null or undefined argument");
+            return;
+        }
+
+        // Make configurations immutable after first get (unless disabled)
+        const config = this.getConfig();
+        const value = this.getImpl(config, property);
+
+        // Produce an exception if the property doesn't exist
+        if (value === undefined) {
+            console.error('Configuration property "' + property + '" is not defined');
+            return undefined;
+        }
+
+        // Return the value
+        return value;
+    };
+
+    static setImpl(object, key, value) {
+        let keys = Array.isArray(key) ? key : key.split('.')
+        let name = keys[0]
+
+        let evalString = 'object';
+        for (let i = 0; i < keys.length; i++) {
+            const element = keys[i];
+            if (i === keys.length - 1) {
+                evalString += `['${keys[i]}'] = ${JSON.stringify(value)}`;
+                continue;
+            } else {
+                evalString += `['${keys[i]}']`;
+            }
+        }
+
+        const res = eval(evalString)
+        return object;
+    };
+
+    static setConfigValue(key, value) {
+        if (key === null || key === undefined) {
+            console.error("Calling config.get with null or undefined argument");
+        }
+        const config = this.getConfig();
+        const newConfig = this.setImpl(config, key, value);
+        if (newConfig) {
+            fs.writeFileSync(path.join(process.cwd(), '/nodeprinter.yaml'), YAML.stringify(newConfig));
+            this.resetConfig()
+        }
+        return true
+    }
+
+    static resetConfig() {
+        this.config = null;
+        return true;
     }
 }
 
