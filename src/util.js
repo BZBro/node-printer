@@ -13,12 +13,12 @@ const DotNumbers = {
 
 class Util {
 
-    static async genImage(deviceId, dotNumbers = DotNumbers['24MM'], fontSize = 13, fontWeight = 500) {
+    static async genImage(deviceId, dotNumbers = DotNumbers['24MM'], fontSize, fontWeight) {
         if (Number.isNaN(fontSize)) {
-            fontSize = 13
+            fontSize = this.getConfigValue('server.image.fontSize');
         }
         if (Number.isNaN(fontWeight)) {
-            fontWeight = 500
+            fontWeight = this.getConfigValue('server.image.fontWeight');
         }
         await this.genDeviceIdImage(deviceId, dotNumbers, fontSize, fontWeight);
         await this.genQrCodeImage(deviceId, dotNumbers);

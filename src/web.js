@@ -1,6 +1,8 @@
 const Koa = require('koa');
 const Router = require('@koa/router');
 const { bodyParser } = require("@koa/bodyparser");
+// const { bodyParser } = require('koa-body');
+const cors = require('@koa/cors');
 const fs = require('fs');
 const { util, DotNumbers } = require('./util');
 const { printer } = require('./Printer')
@@ -33,29 +35,34 @@ class Web {
 
     // 更新配置
     router.post('/update-config', async (ctx, next) => {
-      const { config } = ctx.request.body;
-      util.setConfigValue(config.key, config.value);
-      ctx.body = util.getConfig();
-      next()
-    })
-
-
-    // 测试打印
-    router.post('/test', async (ctx, next) => {
-      const deviceId = 'WISQO TEST LABEL';
-      await util.genImage(deviceId, DotNumbers['24MM'], parseInt(fontSize), parseInt(fontWeight))
-      const res = await printer.printDeviceId(deviceId);
+      const { autoPrint, fontSize, fontWeight } = ctx.request.body;
+      if (typeof autoPrint === 'boolean') {
+        util.setConfigValue(`server.auto.printImage`, autoPrint);
+      }
+      if (fontSize) {
+        util.setConfigValue(`server.image.fontSize`, fontSize);
+      }
+      if (fontWeight) {
+        util.setConfigValue(`server.image.fontWeight`, fontWeight);
+      }
+      
       ctx.body = {
         success: true,
-        data: res
+        data: util.getConfig()
       }
-      return next()
+      next()
     })
 
     //
     router.post('/print', async (ctx, next) => {
-      const { deviceId } = ctx.request.body;
-      await util.genImage(deviceId, DotNumbers['24MM'], parseInt(fontSize), parseInt(fontWeight))
+      let { deviceId, fontSize, fontWeight } = ctx.request.body;
+      if (!fontSize) {
+        fontSize = util.getConfigValue('server.image.fontSize');
+      }
+      if (!fontWeight) {
+        fontWeight = util.getConfigValue('server.image.fontWeight');
+      }
+      await util.genImage(deviceId, DotNumbers['24MM'], fontSize, fontWeight)
       const res = await printer.printDeviceId(deviceId);
       ctx.body = {
         success: true,
@@ -83,6 +90,14 @@ class Web {
       if (!fontWeight) {
         fontWeight = util.getConfigValue('server.image.fontWeight');
       }
+      // const file = fs.existsSync(util.getPreviewPath(deviceId));
+      const file = false;
+      if (file) {
+        const d = fs.createReadStream(util.getPreviewPath(deviceId));
+        ctx.response.set("content-type", "image/png");
+        ctx.body = d;
+        return next()
+      }
       await util.genImage(deviceId, DotNumbers['24MM'], parseInt(fontSize), parseInt(fontWeight))
       const d = fs.createReadStream(util.getPreviewPath(deviceId));
       ctx.response.set("content-type", "image/png");
@@ -90,9 +105,11 @@ class Web {
       return next()
     })
 
-    app.use(router.routes())
+    app.use(bodyParser())
+      .use(cors())
       .use(router.allowedMethods())
-      .use(bodyParser());
+      .use(router.routes())
+      
 
     app.listen(config.http.port, config.http.host, () => {
       console.log(`Http listening : ${config.http.host}:${config.http.port}`);

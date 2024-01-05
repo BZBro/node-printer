@@ -6,15 +6,9 @@ http:
   host: 0.0.0.0
   api-v1: true
 server:
-  p1:
-    p2:
-      p3:
-        p4:
-          key1:
-            xxx: aaa
   auto:
     printImage: false
   image:
     fontSize: 13
-    fontWeight: 500
+    fontWeight: 300
   lastPrint: null

@@ -39,7 +39,7 @@ class Printer {
   static async printDeviceId(deviceId) {
     const filePath = util.getCombinedPath(deviceId);
     const imageRawData = await new raster(filePath, BnadWidth['24MM']).getData();
-    this.printRawData(imageRawData);
+    return this.printRawData(imageRawData);
   }
 
   static async printRawData(buffer) {
