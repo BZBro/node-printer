@@ -37,9 +37,21 @@ class Printer {
   }
 
   static async printDeviceId(deviceId) {
-    const filePath = util.getCombinedPath(deviceId);
-    const imageRawData = await new raster(filePath, BnadWidth['24MM']).getData();
+    // const filePath = util.getCombinedPath(deviceId);
+    const filePath = util.getDeviceIdPath(deviceId);
+    const imageRawData = await new raster(filePath, BnadWidth['18MM']).getData();
     return this.printRawData(imageRawData);
+  }
+
+  static async printSensorUUID(deviceId) {
+    const filePath = util.getSensorIdPath(deviceId);
+    const imageRawData = await new raster(filePath, BnadWidth['18MM']).getData();
+    return this.printRawData(imageRawData);
+  }
+
+  static async printImage(path){
+    const imageRawData = await new raster(path, BnadWidth['18MM']).getData();
+    return this.printRawData(imageRawData)
   }
 
   static async printRawData(buffer) {

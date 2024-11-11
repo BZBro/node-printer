@@ -45,12 +45,30 @@ class Web {
       if (fontWeight) {
         util.setConfigValue(`server.image.fontWeight`, fontWeight);
       }
-      
+
       ctx.body = {
         success: true,
         data: util.getConfig()
       }
       next()
+    })
+
+    //
+    router.post('/print-sensor-uuid', async (ctx, next) => {
+      let { deviceId, fontSize, fontWeight } = ctx.request.body;
+      if (!fontSize) {
+        fontSize = util.getConfigValue('server.sensor.fontSize');
+      }
+      if (!fontWeight) {
+        fontWeight = util.getConfigValue('server.sensor.fontWeight');
+      }
+      await util.genSensorUUID(deviceId, DotNumbers['24MM'], fontSize, fontWeight)
+      const res = await printer.printSensorUUID(deviceId);
+      ctx.body = {
+        success: true,
+        data: res
+      }
+      return next()
     })
 
     //
@@ -72,7 +90,36 @@ class Web {
     })
 
 
-    //
+    // 获取sensor 图片
+    router.get('/static/sensors', async (ctx, next) => {
+      let { deviceId, fontSize, fontWeight } = ctx.request.query;
+      if (!deviceId) {
+        ctx.body = {
+          success: false,
+          error: 'Please specify deviceId'
+        }
+        return next()
+      }
+      if (!fontSize) {
+        fontSize = util.getConfigValue('server.image.fontSize');
+      }
+      if (!fontWeight) {
+        fontWeight = util.getConfigValue('server.image.fontWeight');
+      }
+      const file = fs.existsSync(util.getSensorIdPath(deviceId));
+      if (file) {
+        const d = fs.createReadStream(util.getSensorIdPath(deviceId));
+        ctx.response.set("content-type", "image/png");
+        ctx.body = d;
+        return next()
+      }
+      await util.genSensorUUID(deviceId, DotNumbers['24MM'], parseInt(fontSize), parseInt(fontWeight))
+      const d = fs.createReadStream(util.getSensorIdPath(deviceId));
+      ctx.response.set("content-type", "image/png");
+      ctx.body = d;
+      return next()
+    })
+
 
     // 获取图片
     router.get('/static/images', async (ctx, next) => {
@@ -106,12 +153,12 @@ class Web {
     })
 
     app.use(bodyParser())
-      .use(cors())
-      .use(router.allowedMethods())
-      .use(router.routes())
-      
+    app.use(cors())
+    app.use(router.allowedMethods())
+    app.use(router.routes())
 
-    app.listen(config.http.port, config.http.host, () => {
+
+    app.listen(config.http.port, () => {
       console.log(`Http listening : ${config.http.host}:${config.http.port}`);
     })
   }
