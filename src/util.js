@@ -23,28 +23,52 @@ class Util {
         await this.genDeviceIdImage(deviceId, dotNumbers, fontSize, fontWeight);
         await this.genQrCodeImage(deviceId, dotNumbers);
         const deviceSharp = sharp(this.getDeviceIdImage(deviceId));
-        await deviceSharp
-            .composite([
-                {
-                    input: this.getQrCodeImage(deviceId),
-                    top: 0,
-                    left: ((DotNumbers['24MM'] - DotNumbers['18MM'])) / 2
-                }
-            ])
-            .toFile(this.getCombinedPath(deviceId))
+        // await deviceSharp
+        //     .composite([
+        //         {
+        //             input: this.getQrCodeImage(deviceId),
+        //             top: 5,
+        //             // left: ((DotNumbers['24MM'] - DotNumbers['18MM'])) / 2
+        //             left: 0,
+        //         }
+        //     ])
+        //     .toFile(this.getCombinedPath(deviceId))
 
-        // 这个是用于打印的图
-        await sharp(this.getCombinedImage(deviceId))
-            .resize({
-                position: 'bottom',
-            })
-            .toFile(this.getCombinedPath(deviceId))
+        // // 这个是用于打印的图
+        // await sharp(this.getCombinedImage(deviceId))
+        //     .resize({
+        //         position: 'bottom',
+        //     })
+        //     .toFile(this.getCombinedPath(deviceId))
 
-        // 生成用于预览的图
-        await sharp(this.getCombinedImage(deviceId))
-            .flip()
-            .rotate(270)
-            .toFile(this.getPreviewPath(deviceId))
+        // // 生成用于预览的图
+        // await sharp(this.getCombinedImage(deviceId))
+        //     .flip()
+        //     .rotate(270)
+        //     .toFile(this.getPreviewPath(deviceId))
+    }
+
+    static async genSensorUUID(deviceId, dotNumbers = DotNumbers['24MM'], fontSize, fontWeight) {
+        if (Number.isNaN(fontSize)) {
+            fontSize = this.getConfigValue('server.image.fontSize');
+        }
+        if (Number.isNaN(fontWeight)) {
+            fontWeight = this.getConfigValue('server.image.fontWeight');
+        }
+        await this.genSensorUUIDImage(deviceId, dotNumbers, fontSize, fontWeight);
+
+        // // 这个是用于打印的图
+        // await sharp(this.getSensorIdImage(deviceId))
+        //     .resize({
+        //         position: 'bottom',
+        //     })
+        //     .toFile(this.getCombinedPath(deviceId))
+
+        // // 生成用于预览的图
+        // await sharp(this.getCombinedImage(deviceId))
+        //     .flip()
+        //     .rotate(270)
+        //     .toFile(this.getPreviewPath(deviceId))
     }
 
     static getPreviewImage(deviceId) {
@@ -63,6 +87,10 @@ class Util {
         return fs.readFileSync(this.getCombinedPath(deviceId))
     }
 
+    static getSensorIdImage(deviceId) {
+        return fs.readFileSync(this.getSensorIdPath(deviceId))
+    }
+
     static getPreviewPath(deviceId) {
         return path.join(process.cwd(), `/images/preview/${deviceId.toLowerCase()}.png`)
     }
@@ -75,6 +103,10 @@ class Util {
         return path.join(process.cwd(), `/images/devices/${deviceId.toLowerCase()}.png`)
     }
 
+    static getSensorIdPath(deviceId) {
+        return path.join(process.cwd(), `/images/sensors/${deviceId.toLowerCase()}.png`)
+    }
+
     static getQrCodePath(deviceId) {
         return path.join(process.cwd(), `/images/qrcodes/${deviceId.toLowerCase()}.png`)
     }
@@ -84,7 +116,7 @@ class Util {
         const shortDayStr = dayStr.split('-').join('');
         const batchId = 'IDS'
         const IPremainder = parseInt(deviceId, 16) % 3;
-        const defaultIp = '192.168.100.' + (IPremainder ? IPremainder + 100 : 103).toString()
+        const defaultIp = '192.168.1.' + (IPremainder ? IPremainder + 100 : 103).toString()
 
         const res = await bwipjs.toBuffer(
             {
@@ -105,18 +137,128 @@ class Util {
         return qrSharp;
     }
 
+    static async genSensorUUIDImage(deviceId, dotNumbers, fontSize, fontWeight) {
+        await textToImage.generate(`ID: ${deviceId.toUpperCase()}`, {
+            debug: true,
+            textAlign: 'left',
+            fontSize,
+            fontWeight,
+            debugFilename: this.getSensorIdPath(deviceId)
+        });
+
+        let deviceSharpHeight = 280;
+        switch (fontSize) {
+            case 10:
+                deviceSharpHeight = 280;
+                break;
+            case 11:
+                deviceSharpHeight = 292;
+                break;
+            case 12:
+                deviceSharpHeight = 308;
+                break;
+            case 14:
+                deviceSharpHeight = 340;
+                break;
+            case 15:
+                deviceSharpHeight = 360;
+                break;
+            case 16:
+                deviceSharpHeight = 370;
+                break;
+            case 17:
+                deviceSharpHeight = 380;
+                break;
+            case 18:
+                deviceSharpHeight = 398;
+                break;
+            case 19:
+                deviceSharpHeight = 408;
+                break;
+            case 20:
+                deviceSharpHeight = 424;
+                break;
+            default:
+                break;
+        }
+
+        if (fontWeight < 600) {
+            deviceSharpHeight -= 20;
+        }
+
+        await sharp(fs.readFileSync(this.getSensorIdPath(deviceId)))
+            .rotate(270)
+            .flip()
+            .resize(dotNumbers, deviceSharpHeight, {
+                position: 'bottom',
+            })
+            .extract({
+                left: 0,
+                top: 0,
+                width: dotNumbers,
+                height: deviceSharpHeight
+            }) // 移除旁边的空白 10px
+            .toFile(this.getSensorIdPath(deviceId))
+
+        const deviceSharp = sharp(this.getSensorIdImage(deviceId) );
+        await deviceSharp
+            .png()
+            // .composite([
+            //     {
+            //         input: fs.readFileSync(path.join(process.cwd(), `/images/others/rectangle.png`)),
+            //         // top: 0,
+            //         // left: ((DotNumbers['24MM'] - DotNumbers['18MM'])) / 2,
+            //         blend: 'multiply'
+            //     }
+            // ])
+            .toFile(this.getSensorIdPath(deviceId))
+
+        //     | 'clear'
+        // | 'source'
+        // | 'over'
+        // | 'in'
+        // | 'out'
+        // | 'atop'
+        // | 'dest'
+        // | 'dest-over'
+        // | 'dest-in'
+        // | 'dest-out'
+        // | 'dest-atop'
+        // | 'xor'
+        // | 'add'
+        // | 'saturate'
+        // | 'multiply'
+        // | 'screen'
+        // | 'overlay'
+        // | 'darken'
+        // | 'lighten'
+        // | 'color-dodge'
+        // | 'colour-dodge'
+        // | 'color-burn'
+        // | 'colour-burn'
+        // | 'hard-light'
+        // | 'soft-light'
+        // | 'difference'
+        // | 'exclusion';
+
+        return deviceSharp;
+
+    }
+
     static async genDeviceIdImage(deviceId, dotNumbers, fontSize, fontWeight) {
         const IPremainder = parseInt(deviceId, 16) % 3;
-        const defaultIp = '192.168.100.' + (IPremainder ? IPremainder + 100 : 103).toString()
+        const defaultIp = '192.168.1.' + (IPremainder ? IPremainder + 100 : 103).toString()
         await textToImage.generate(`${deviceId.toUpperCase()}\n${defaultIp}`, {
             debug: true,
             textAlign: 'left',
             fontSize,
             fontWeight,
+            margin: 2,
+            // customHeight: 200,
             debugFilename: this.getDeviceIdPath(deviceId)
         });
 
-        let deviceSharpHeight = 320;
+        let deviceSharpHeight = 300;
         switch (fontSize) {
             case 10:
                 deviceSharpHeight = 280;
@@ -159,14 +301,14 @@ class Util {
         const deviceSharp = await sharp(fs.readFileSync(this.getDeviceIdPath(deviceId)))
             .rotate(270)
             .flip()
-            .resize(dotNumbers, deviceSharpHeight, {
+            .resize(dotNumbers, 174, {
                 position: 'bottom',
             })
             .extract({
                 left: 0,
                 top: 0,
                 width: dotNumbers,
-                height: deviceSharpHeight - 10
+                height: 174
             }) // 移除旁边的空白 10px
             .toFile(this.getDeviceIdPath(deviceId))
 
