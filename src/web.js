@@ -160,7 +160,6 @@ class Web {
       ctx.body = d;
       return next()
     })
-
     const staticOptions = {
       dir: 'public/dist',
       // Browser cache max-age in milliseconds. defaults to 0
