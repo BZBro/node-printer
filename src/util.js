@@ -247,7 +247,8 @@ class Util {
 
     static async genDeviceIdImage(deviceId, dotNumbers, fontSize, fontWeight) {
         const IPremainder = parseInt(deviceId, 16) % 3;
-        const defaultIp = '192.168.1.' + (IPremainder ? IPremainder + 100 : 103).toString()
+        // const defaultIp = '192.168.1.' + (IPremainder ? IPremainder + 100 : 103).toString()
+        const defaultIp = '192.168.1.101'
         await textToImage.generate(`${deviceId.toUpperCase()}\n${defaultIp}`, {
             debug: true,
             textAlign: 'left',
